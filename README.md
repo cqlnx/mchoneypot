@@ -20,7 +20,9 @@ A simple Python honeypot that mimics a Minecraft server to log scans and connect
 Edit in the script:
 
 webhook_url = "your-webhook-here"
+
 max_pings = 5
+
 time_window = 300
 
 ## Usage
