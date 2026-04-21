@@ -36,6 +36,7 @@ The honeypot is fully controlled via a config file:
 {
   "webhook_url": "your-webhook-here",
   "enable_webhook": false,
+  "logs_directory": "logs",
   "logs": "logs/honeypothits.txt",
   "pureiplogs": "logs/honeypotips.txt",
   "bind_host": "0.0.0.0",

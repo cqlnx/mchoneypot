@@ -14,10 +14,12 @@ with open("config.json") as f:
     config = json.load(f)
 
 logs = config["logs"]
-log_directory = os.path.dirname(logs)
-if log_directory and not os.path.exists(log_directory):
-    os.makedirs(log_directory)
-    print(f"Created directory: {log_directory}")
+logsdir = config["logs_directory"]
+
+if logsdir and not os.path.exists(logsdir):
+    os.makedirs(logsdir)
+    print(f"Created directory: {logsdir}")
+
 cleanup_interval = config["cleanup_interval"]
 host = config['bind_host']
 pureiplogs = config["pureiplogs"]
@@ -159,9 +161,9 @@ def log_hit(ip_address, port_num):
     )
     print(connection)
     with log_lock:
-        with open(logs, "a") as f:
+        with open(f"{logsdir}/{logs}", "a") as f:
             f.write(f"[{timestamp}] Ping from: `{ip_address}:{port_num}`\nCountry: {country}\nISP: {isp}\n")
-        with open(pureiplogs, "a") as f:
+        with open(f"{logsdir}/{pureiplogs}", "a") as f:
             f.write(f"{ip_address}\n")
     send_webhook(webhook_url, connection)
 
@@ -240,9 +242,9 @@ def run_honeypot(host=host, port=port):
                     send_webhook(webhook_url, f"**Login attempt from: `{username}` `{ip_address}`**")
                     timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     with log_lock:
-                        with open(logs, "a") as f:
+                        with open(f"{logsdir}/{logs}", "a") as f:
                             f.write(f"[{timestamp}] Login attempt from: {username} {ip_address}\n")
-                        with open(pureiplogs, "a") as f:
+                        with open(f"{logsdir}/{pureiplogs}", "a") as f:
                             f.write(f"{ip_address} (login attempt)\n")
                     reason = json.dumps(kick_message)
                     reason_encoded = reason.encode("utf-8")
@@ -265,7 +267,7 @@ def run_honeypot(host=host, port=port):
 
 timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 with log_lock:
-    with open(logs, "a") as f:
+    with open(f"{logsdir}/{logs}", "a") as f:
         f.write(f"\n--------------------------------------------------------\n[{timestamp}] Honeypot started on port {port}.\n--------------------------------------------------------\n")
 Thread(target=cleanup_ip_requests, daemon=True).start()
 
@@ -277,8 +279,8 @@ Best Minecraft honeypot started!
   Time window:      {time_window}s
   Cleanup interval: {cleanup_interval}s
   Webhook:          {"enabled" if enable_webhook else "disabled"}
-  Logs:             {logs}
-  IP logs:          {pureiplogs}
+  Logs:             {logsdir}/{logs}
+  IP logs:          {logsdir}/{pureiplogs}
 """)
 
 run_honeypot()
