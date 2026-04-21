@@ -7,7 +7,7 @@ A simple Python honeypot that mimics a Minecraft server to log scans and connect
 * Responds to Minecraft status pings
 * Logs IP, country, and ISP
 * Basic rate limiting per IP
-* Optional Discord webhook alerts
+* Optional webhook alerts
 * Logs login attempts
 
 ## Requirements
