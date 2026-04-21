@@ -88,8 +88,8 @@ Default bind:
 
 ## Output Files
 
-- honeypothits.txt  
-- honeypotips.txt  
+- logs/honeypothits.txt  
+- logs/honeypotips.txt  
 
 ---
 
