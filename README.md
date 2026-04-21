@@ -38,6 +38,7 @@ The honeypot is fully controlled via a config file:
   "enable_webhook": false,
   "logs": "logs/honeypothits.txt",
   "pureiplogs": "logs/honeypotips.txt",
+  "bind_host": "0.0.0.0",
   "port": 25565,
   "max_pings": 5,
   "time_window": 300,
