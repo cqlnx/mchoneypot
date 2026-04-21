@@ -1,0 +1,8 @@
+{
+    "webhook_url": "",
+    "enable_webhook": false,
+    "logs": "honeypothits.txt",
+    "pureiplogs": "honeypotips.txt",
+    "max_pings": 5,
+    "time_window": 300
+}
