@@ -1,8 +1,9 @@
 {
   "webhook_url": "",
   "enable_webhook": false,
-  "logs": "honeypothits.txt",
-  "pureiplogs": "honeypotips.txt",
+  "logs": "logs/honeypothits.txt",
+  "pureiplogs": "logs/honeypotips.txt",
+  "port": 25565,
   "max_pings": 5,
   "time_window": 300,
 
@@ -15,22 +16,11 @@
       "max": 20,
       "online": 4,
       "sample": [
-        {
-          "name": "Notch",
-          "id": "069a79f4-44e9-4726-a5be-fca90e38aaf5"
-        },
-        {
-          "name": "Herobrine",
-          "id": "f84c6a79-0a4e-45e0-879b-cd49ebd4c4e2"
-        },
-        {
-          "name": "Dinnerbone",
-          "id": "61699b2e-d327-4a01-9f1e-0ea8c3f06bc6"
-        },
-        {
-          "name": "popiiumaa",
-          "id": "6f22dc59-9977-43ba-8699-dcf481600a1c"
-        }
+        {"name": "Notch", "id": "069a79f4-44e9-4726-a5be-fca90e38aaf5"},
+        {"name": "Herobrine", "id": "f84c6a79-0a4e-45e0-879b-cd49ebd4c4e2"},
+        {"name": "Dinnerbone", "id": "61699b2e-d327-4a01-9f1e-0ea8c3f06bc6"},
+        {"name": "popiiumaa", "id": "6f22dc59-9977-43ba-8699-dcf481600a1c"}, 
+        {"name": "a2naly", "id": "fe045873-ba4b-4517-86f6-0bd0fb256a75"}
       ]
     },
     "description": {
@@ -38,7 +28,7 @@
     },
     "favicon": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAAAeFBMVEUAAAD/1FnwvUTzv0XyvkT/1loJBgDot0JLMQLru0XDlzO7jitaSBv70FbNpj+whShUOAbZqTpePQMkFwCkeiFwWSFAKQIwHwF4Ugrisj+YbhmUeTCJYRMUDQBqRwb3y1JkUiCIbivJnjfxxE56YiStjzqhgzTYskku4MG+AAAEGUlEQVRYw81Xi46rOAy9kEAIhACFAOFRHgX6/3+4Tlo6pYSdcqWV1tK0oZocjp1jx/7z539lbpsWee4dWw5WpK17sL24VlHg+8GH+SNfLeF8DLImTo0QeZPYaG83y9ma1fEmNyCkZYLsnWEUWjtzaFPsAbzIsN+2O8tgju/tI3BNsGG/iQAA8Nj9FsAyAozxnsHFR98zCHJDDCr6dQy6pjWcwjXQp4jBfqPgxwaA1iuVjkaeSEkIfdG5GRBIdE0/94MMswosUxZFwQOKKA57CMeSH0pw89Kn2FbkKRhZTfHAnUlLdpN+yNgoo8MwWs796v4m42cMLLOF1Y8T7SXAR/txeAAAYnpRKBpinyUAGVWuZ+nGwZsDePN1EIGtD22p0wAj9Uml3k4J1b9pD8JQ1QQr7PTyZZG38QAnC+DgoPcRJtEkphHQ5ppCAam5RflcT9MczrWixOdQ5fTlGYQ80y+tY1URBuYjWrMhE7AgIp4dh/d3KvqpXmYeDj1UKNIPCoBf200pGRjHNhETRQGLKJKTkABQW848dXc2d7q0zT1QWgR8KCWk7zGkUy8xBnCbTBPBNvKZDwBT5yyDdWejo0NP+hH+Zkevy/S9EtAJ3o1lX6OEKUo4YYvsRX936trhjDsqfE5YD+ECvz3OsXgCjAqACBEsw8SEhFcrAMlqwBCzpQGWeahvine/6Ai8AbQaABjHjImJ9dxn44NBxpk/DN2gAMRQL8pza2Yvd14u6P/nvfATIsWAHgzgKxjZ6Pd3DcBV3NW2mxC3NZ3SJ4NXDCCIYoBX1wiUOLAEuBBRKwBwG6SkY8+WtTQ/j3Etp4MgCkYQClogMmIZHtmMgPLs0N7v7vMCZ2ktTIdQC6ndpMLSK0XXcIRy6IVgNSxEhuky3ByIvOjFsNwAaniq2YnWdHwICUtfKZpIlQljFI0qGSQ8ISXejs9cl7bb8iRgWdmaCw8pQzL9pKEqz/oBr2VVheBRDn9q+3o5FOYb4a20d+Z6sKZz2kj8C4Khtv/k0p/WfC1+QOxqc7Bm8yqELzC6LtQGixuufq54L8P2l4axuvzUSjb5261A7LOGeZm+Xwv4LACKLu1bbxCgswC0eu9y8t+UsPcgKYtth3bSBxRc2k1/c9aHrQd/cQ5bD1R/M56igKPLtslx4+zUftJ8tmlFKU+EEY27Hqk9FUaaee6+Vyf4L0WwhtFHJ0Swb/ddr/r6JPchfDSK31JA/rU1TTzxtxRolRtnpm8pQAhT89AVN19pAUfewdhWXDP7VwSM5AEBRaGEy2mtecZyaJPEr2L3aPBMr2WTBWMiqa2mhtfkpycIShI1M5bXOD0eXdvCiy+A0lS6538ZPFUV7L3EedG6/zb7Psdfz4uVXZ4GSzX2Hg+9JqgP++8G9n8AxnReR+9zFycAAAAASUVORK5CYII="
   },
-  
+
   "kick_message": {
     "text": "minescan.xyz honeypot caught your scanner ;)",
     "color": "yellow"

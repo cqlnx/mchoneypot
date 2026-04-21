@@ -1,10 +1,12 @@
 import socket
+import os
 import datetime
 import requests
 import time
 import json
 import struct
 import copy
+import random
 from io import BytesIO
 from threading import Thread
 
@@ -12,12 +14,17 @@ with open("config.json") as f:
     config = json.load(f)
 
 logs = config["logs"]
+log_directory = os.path.dirname(logs)
+if log_directory and not os.path.exists(log_directory):
+    os.makedirs(log_directory)
+    print(f"Created directory: {log_directory}")
 pureiplogs = config["pureiplogs"]
 enable_webhook = config["enable_webhook"]
 webhook_url = config["webhook_url"]
 max_pings = config["max_pings"]
 time_window = config["time_window"]
 kick_message = config["kick_message"]
+port = config["port"]
 ip_requests = {}
 
 def send_discord_message(webhook_url, message):
@@ -33,7 +40,7 @@ def send_discord_message(webhook_url, message):
 def lookup_ip(ip_address=None):
     url = f"http://ip-api.com/json/{ip_address}" if ip_address else "http://ip-api.com/json/"
     try:
-        api = requests.get(url, timeout=5)
+        api = requests.get(url, headers={'User-Agent': 'MCHoneypot/1.0'}, timeout=5)
         return api.json()
     except:
         return {}
@@ -86,6 +93,18 @@ def recv_exact(sock, length):
 # you can customize this response to whatever you want
 def send_mc_status(client_socket):
     response = copy.deepcopy(config["response"])
+
+    base_online = response["players"]["online"]
+    jitter = random.randint(-1, 1)
+    new_online = max(0, base_online + jitter)
+
+    response["players"]["online"] = new_online
+
+    full_sample = response["players"].get("sample", [])
+    random.shuffle(full_sample)
+
+    response["players"]["sample"] = full_sample[:new_online]
+
     json_data = json.dumps(response).encode("utf-8")
 
     packet = b""
@@ -113,7 +132,7 @@ def log_hit(ip_address, port_num):
     if webhook_url:
         send_discord_message(webhook_url, connection)
 
-def run_honeypot(host='0.0.0.0', port=25565):
+def run_honeypot(host='0.0.0.0', port=port):
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
@@ -121,13 +140,14 @@ def run_honeypot(host='0.0.0.0', port=25565):
         server_socket.bind((host, port))
         server_socket.listen(5)
         
-        print('Honeypot started')
+        print(f'Honeypot started on port {port}')
         if webhook_url:
-            send_discord_message(webhook_url, ' **Honeypot started**')
+            send_discord_message(webhook_url, f' **Honeypot started on port {port}**')
         print("waiting for scanners ;)\n")
 
         while True:
             client_socket, client_address = server_socket.accept()
+            client_socket.settimeout(10.0)
             ip_address = client_address[0]
             port_num = client_address[1]
             now = time.time()
@@ -193,7 +213,6 @@ def run_honeypot(host='0.0.0.0', port=25565):
                         f.write(f"[{timestamp}] Login attempt from: {username} {ip_address}\n")
                     with open(pureiplogs, "a") as f:
                         f.write(f"{ip_address} (login attempt)\n")
-                    # if somebody tries to login they will see this message, you can customize it to whatever you want
                     reason = json.dumps(kick_message)
                     reason_encoded = reason.encode("utf-8")
                     packet = send_varint(0x00) + send_varint(len(reason_encoded)) + reason_encoded
@@ -214,6 +233,6 @@ def run_honeypot(host='0.0.0.0', port=25565):
 
 timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 with open(logs, "a") as f:
-    f.write(f"[{timestamp}] Honeypot started.\n")
+    f.write(f"[{timestamp}] Honeypot started on port {port}.\n")
 
 run_honeypot()

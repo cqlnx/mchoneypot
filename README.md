@@ -36,8 +36,9 @@ The honeypot is fully controlled via a config file:
 {
   "webhook_url": "",
   "enable_webhook": false,
-  "logs": "honeypothits.txt",
-  "pureiplogs": "honeypotips.txt",
+  "logs": "logs/honeypothits.txt",
+  "pureiplogs": "logs/honeypotips.txt",
+  "port": 25565,
   "max_pings": 5,
   "time_window": 300,
 
@@ -72,6 +73,10 @@ The honeypot is fully controlled via a config file:
 ---
 
 ## Usage
+
+```
+pip install -r requirements.txt
+```
 
 ```
 python honeypot.py
