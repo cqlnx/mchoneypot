@@ -23,7 +23,7 @@ A simple Python honeypot that mimics a Minecraft server to log scans and connect
 Install dependencies:
 
 ```
-pip install -r requirements.txt
+pip install requests
 ```
 
 ---
@@ -34,7 +34,7 @@ The honeypot is fully controlled via a config file:
 
 ```json
 {
-  "webhook_url": "",
+  "webhook_url": "your-webhook-here",
   "enable_webhook": false,
   "logs": "logs/honeypothits.txt",
   "pureiplogs": "logs/honeypotips.txt",
@@ -42,6 +42,7 @@ The honeypot is fully controlled via a config file:
   "port": 25565,
   "max_pings": 5,
   "time_window": 300,
+  "cleanup_interval": 3600,
 
   "response": {
     "version": {
@@ -76,6 +77,10 @@ The honeypot is fully controlled via a config file:
 ## Usage
 
 ```
+pip install -r requirements.txt
+```
+
+```
 python honeypot.py
 ```
 
@@ -89,8 +94,8 @@ Default bind:
 
 ## Output Files
 
-- logs/honeypothits.txt  
-- logs/honeypotips.txt  
+- honeypothits.txt  
+- honeypotips.txt  
 
 ---
 

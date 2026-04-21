@@ -18,6 +18,7 @@ log_directory = os.path.dirname(logs)
 if log_directory and not os.path.exists(log_directory):
     os.makedirs(log_directory)
     print(f"Created directory: {log_directory}")
+cleanup_interval = config["cleanup_interval"]
 host = config['bind_host']
 pureiplogs = config["pureiplogs"]
 enable_webhook = config["enable_webhook"]
@@ -27,17 +28,29 @@ time_window = config["time_window"]
 kick_message = config["kick_message"]
 port = config["port"]
 
+if max_pings < 1:
+    print("max_pings must be at least 1.")
+    exit(1)
+if time_window < 1:
+    print("time_window must be at least 1.")
+    exit(1)
 if port < 1 or port > 65535:
     print("Invalid port number. Please use a port between 1 and 65535.")
     exit(1)
 if enable_webhook and webhook_url in ("your-webhook-here", ""):
     print("Webhook enabled but no URL provided. Disabling webhook.")
     enable_webhook = False
+if cleanup_interval < 1:
+    print("cleanup_interval must be at least 1 second.")
+    exit(1)
 
 ip_requests = {}
 ip_requests_lock = Lock()
+log_lock = Lock()
 
-def send_discord_message(webhook_url, message):
+
+
+def send_webhook(webhook_url, message):
     if enable_webhook == False:
         return
     data = {"content": message}
@@ -52,7 +65,8 @@ def lookup_ip(ip_address=None):
     try:
         api = requests.get(url, headers={'User-Agent': 'MCHoneypot/1.0'}, timeout=5)
         return api.json()
-    except:
+    except Exception as e:
+        print(f"IP lookup failed for {ip_address} with error: {e}")
         return {}
 
 def read_varint(sock):
@@ -100,6 +114,16 @@ def recv_exact(sock, length):
         data += chunk
     return data
 
+def cleanup_ip_requests():
+    while True:
+        time.sleep(cleanup_interval)
+        now = time.time()
+        with ip_requests_lock:
+            expired = [ip for ip, times in ip_requests.items() 
+                      if not any(now - t < time_window for t in times)]
+            for ip in expired:
+                del ip_requests[ip]
+
 def send_mc_status(client_socket):
     response = copy.deepcopy(config["response"])
 
@@ -134,12 +158,12 @@ def log_hit(ip_address, port_num):
         f'ISP: {isp}'
     )
     print(connection)
-    with open(logs, "a") as f:
-        f.write(f"[{timestamp}] Ping from: `{ip_address}:{port_num}`\nCountry: {country}\nISP: {isp}\n")
-    with open(pureiplogs, "a") as f:
-        f.write(f"{ip_address}\n")
-    if webhook_url:
-        send_discord_message(webhook_url, connection)
+    with log_lock:
+        with open(logs, "a") as f:
+            f.write(f"[{timestamp}] Ping from: `{ip_address}:{port_num}`\nCountry: {country}\nISP: {isp}\n")
+        with open(pureiplogs, "a") as f:
+            f.write(f"{ip_address}\n")
+    send_webhook(webhook_url, connection)
 
 def run_honeypot(host=host, port=port):
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -149,9 +173,7 @@ def run_honeypot(host=host, port=port):
         server_socket.bind((host, port))
         server_socket.listen(5)
         
-        print(f'Honeypot started on port {port}')
-        if webhook_url:
-            send_discord_message(webhook_url, f' **Honeypot started on port {port}**')
+        send_webhook(webhook_url, f' **Honeypot started on port {port}**')
         print("waiting for scanners ;)\n")
 
         while True:
@@ -182,7 +204,7 @@ def run_honeypot(host=host, port=port):
                 if packet_id != 0x00:
                     client_socket.close()
                     continue
-                
+
                 _protocol = read_varint_from_buffer(buffer)
                 addr_len = read_varint_from_buffer(buffer)
                 buffer.read(addr_len)
@@ -215,12 +237,13 @@ def run_honeypot(host=host, port=port):
                     name_len = read_varint_from_buffer(buffer)
                     username = buffer.read(name_len).decode("utf-8")
                     print(f"Login attempt from: {username} at {ip_address}")
-                    send_discord_message(webhook_url, f"**Login attempt from: `{username}` `{ip_address}`**")
+                    send_webhook(webhook_url, f"**Login attempt from: `{username}` `{ip_address}`**")
                     timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    with open(logs, "a") as f:
-                        f.write(f"[{timestamp}] Login attempt from: {username} {ip_address}\n")
-                    with open(pureiplogs, "a") as f:
-                        f.write(f"{ip_address} (login attempt)\n")
+                    with log_lock:
+                        with open(logs, "a") as f:
+                            f.write(f"[{timestamp}] Login attempt from: {username} {ip_address}\n")
+                        with open(pureiplogs, "a") as f:
+                            f.write(f"{ip_address} (login attempt)\n")
                     reason = json.dumps(kick_message)
                     reason_encoded = reason.encode("utf-8")
                     time.sleep(random.randint(1,4))
@@ -241,7 +264,21 @@ def run_honeypot(host=host, port=port):
         server_socket.close()
 
 timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-with open(logs, "a") as f:
-    f.write(f"\n--------------------------------------------------------\n[{timestamp}] Honeypot started on port {port}.\n--------------------------------------------------------\n")
+with log_lock:
+    with open(logs, "a") as f:
+        f.write(f"\n--------------------------------------------------------\n[{timestamp}] Honeypot started on port {port}.\n--------------------------------------------------------\n")
+Thread(target=cleanup_ip_requests, daemon=True).start()
+
+print(f"""
+Best Minecraft honeypot started!
+  Port:             {port}
+  Host:             {host}
+  Max pings:        {max_pings}
+  Time window:      {time_window}s
+  Cleanup interval: {cleanup_interval}s
+  Webhook:          {"enabled" if enable_webhook else "disabled"}
+  Logs:             {logs}
+  IP logs:          {pureiplogs}
+""")
 
 run_honeypot()
