@@ -23,7 +23,7 @@ A simple Python honeypot that mimics a Minecraft server to log scans and connect
 Install dependencies:
 
 ```
-pip install requests
+pip install -r requirements.txt
 ```
 
 ---
@@ -76,10 +76,6 @@ The honeypot is fully controlled via a config file:
 ---
 
 ## Usage
-
-```
-pip install -r requirements.txt
-```
 
 ```
 python honeypot.py
