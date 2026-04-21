@@ -95,8 +95,10 @@ Default bind:
 
 ## Output Files
 
-- logs/honeypothits.txt  
-- logs/honeypotips.txt  
+Log files are written to the directory specified by `logs_directory` in `config.json`.
+
+- `logs` — detailed hit log with timestamps, country, and ISP
+- `pureiplogs` — plain list of IPs, one per line
 
 ---
 
