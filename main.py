@@ -12,6 +12,7 @@ logs = 'honeypothits.txt'
 pureiplogs = 'honeypotips.txt'
 
 # ADD YOUR WEBHOOK URL HERE
+enable_webhook = False # set to true if you want to use the webhook
 webhook_url = 'your-webhook-here'
 
 max_pings = 5 # ratelimit
@@ -19,6 +20,8 @@ time_window = 300 # ratelimit
 ip_requests = {}
 
 def send_discord_message(webhook_url, message):
+    if enable_webhook == False:
+        return
     data = {"content": message}
     headers = {"Content-Type": "application/json"}
     try:
@@ -80,7 +83,6 @@ def recv_exact(sock, length):
     return data
 
 # you can customize this response to whatever you want
-# right now has a picture of a pot of honey and some fakeplayers
 def send_mc_status(client_socket):
     response = {
       "version": {"name": "1.21.11", "protocol": 774},
@@ -196,7 +198,6 @@ def run_honeypot(host='0.0.0.0', port=25565):
                         f.write(f"[{timestamp}] Login attempt from: {username} {ip_address}\n")
                     with open(pureiplogs, "a") as f:
                         f.write(f"{ip_address} (login attempt)\n")
-                      
                     # if somebody tries to login they will see this message, you can customize it to whatever you want
                     reason = json.dumps({"text": "minescan.xyz honeypot caught your scanner ;)", "color": "yellow"})
                     reason_encoded = reason.encode("utf-8")
