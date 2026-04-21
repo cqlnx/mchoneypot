@@ -8,7 +8,7 @@ import struct
 import copy
 import random
 from io import BytesIO
-from threading import Thread
+from threading import Thread, Lock
 
 with open("config.json") as f:
     config = json.load(f)
@@ -18,6 +18,7 @@ log_directory = os.path.dirname(logs)
 if log_directory and not os.path.exists(log_directory):
     os.makedirs(log_directory)
     print(f"Created directory: {log_directory}")
+host = config['bind_host']
 pureiplogs = config["pureiplogs"]
 enable_webhook = config["enable_webhook"]
 webhook_url = config["webhook_url"]
@@ -25,7 +26,16 @@ max_pings = config["max_pings"]
 time_window = config["time_window"]
 kick_message = config["kick_message"]
 port = config["port"]
+
+if port < 1 or port > 65535:
+    print("Invalid port number. Please use a port between 1 and 65535.")
+    exit(1)
+if enable_webhook and webhook_url in ("your-webhook-here", ""):
+    print("Webhook enabled but no URL provided. Disabling webhook.")
+    enable_webhook = False
+
 ip_requests = {}
+ip_requests_lock = Lock()
 
 def send_discord_message(webhook_url, message):
     if enable_webhook == False:
@@ -90,7 +100,6 @@ def recv_exact(sock, length):
         data += chunk
     return data
 
-# you can customize this response to whatever you want
 def send_mc_status(client_socket):
     response = copy.deepcopy(config["response"])
 
@@ -117,8 +126,8 @@ def send_mc_status(client_socket):
 def log_hit(ip_address, port_num):
     timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     location_isp = lookup_ip(ip_address)
-    country = location_isp.get("country")
-    isp = location_isp.get("isp")
+    country = location_isp.get("country") or "Unknown"
+    isp = location_isp.get("isp") or "Unknown"
     connection = (
         f'[{timestamp}] Ping from: `{ip_address}:{port_num}`\n'
         f'Country: {country}\n'
@@ -132,7 +141,7 @@ def log_hit(ip_address, port_num):
     if webhook_url:
         send_discord_message(webhook_url, connection)
 
-def run_honeypot(host='0.0.0.0', port=port):
+def run_honeypot(host=host, port=port):
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
@@ -152,17 +161,16 @@ def run_honeypot(host='0.0.0.0', port=port):
             port_num = client_address[1]
             now = time.time()
 
-            if ip_address not in ip_requests:
-                ip_requests[ip_address] = []
+            with ip_requests_lock:
+                if ip_address not in ip_requests:
+                    ip_requests[ip_address] = []
+                ip_requests[ip_address] = [t for t in ip_requests[ip_address] if now - t < time_window]
+                if len(ip_requests[ip_address]) >= max_pings:
+                    print(f"{ip_address} exceeded rate limit, closing connection")
+                    client_socket.close()
+                    continue
+                ip_requests[ip_address].append(now)
 
-            ip_requests[ip_address] = [t for t in ip_requests[ip_address] if now - t < time_window]
-
-            if len(ip_requests[ip_address]) >= max_pings:
-                print(f"{ip_address} exceeded rate limit, closing connection")
-                client_socket.close()
-                continue
-
-            ip_requests[ip_address].append(now)
             Thread(target=log_hit, args=(ip_address, port_num)).start()
 
             try:
@@ -174,7 +182,7 @@ def run_honeypot(host='0.0.0.0', port=port):
                 if packet_id != 0x00:
                     client_socket.close()
                     continue
-
+                
                 _protocol = read_varint_from_buffer(buffer)
                 addr_len = read_varint_from_buffer(buffer)
                 buffer.read(addr_len)
@@ -215,6 +223,7 @@ def run_honeypot(host='0.0.0.0', port=port):
                         f.write(f"{ip_address} (login attempt)\n")
                     reason = json.dumps(kick_message)
                     reason_encoded = reason.encode("utf-8")
+                    time.sleep(random.randint(1,4))
                     packet = send_varint(0x00) + send_varint(len(reason_encoded)) + reason_encoded
                     client_socket.sendall(send_varint(len(packet)) + packet)
 
@@ -233,6 +242,6 @@ def run_honeypot(host='0.0.0.0', port=port):
 
 timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 with open(logs, "a") as f:
-    f.write(f"[{timestamp}] Honeypot started on port {port}.\n")
+    f.write(f"\n--------------------------------------------------------\n[{timestamp}] Honeypot started on port {port}.\n--------------------------------------------------------\n")
 
 run_honeypot()
