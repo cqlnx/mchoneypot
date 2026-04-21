@@ -1,4 +1,4 @@
-#MCHoneypot
+# MCHoneypot
 
 A simple Python honeypot that mimics a Minecraft server to log scans and
 connection attempts.
