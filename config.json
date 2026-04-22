@@ -9,6 +9,7 @@
   "max_pings": 5,
   "time_window": 300,
   "cleanup_interval": 3600,
+  "cache_ttl": 86400,
 
   "response": {
     "version": {

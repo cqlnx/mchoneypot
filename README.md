@@ -44,6 +44,7 @@ The honeypot is fully controlled via a config file:
   "max_pings": 5,
   "time_window": 300,
   "cleanup_interval": 3600,
+  "cache_ttl": 86400,
 
   "response": {
     "version": {
@@ -57,8 +58,7 @@ The honeypot is fully controlled via a config file:
         { "name": "Notch", "id": "069a79f4-44e9-4726-a5be-fca90e38aaf5" },
         { "name": "Herobrine", "id": "f84c6a79-0a4e-45e0-879b-cd49ebd4c4e2" },
         { "name": "Dinnerbone", "id": "61699b2e-d327-4a01-9f1e-0ea8c3f06bc6" },
-        { "name": "popiiumaa", "id": "6f22dc59-9977-43ba-8699-dcf481600a1c" },
-        { "name": "a2naly", "id": "fe045873-ba4b-4517-86f6-0bd0fb256a75" }
+        { "name": "popiiumaa", "id": "6f22dc59-9977-43ba-8699-dcf481600a1c" }
       ]
     },
     "description": {

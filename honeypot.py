@@ -29,6 +29,9 @@ max_pings = config["max_pings"]
 time_window = config["time_window"]
 kick_message = config["kick_message"]
 port = config["port"]
+CACHE_TTL = config["cache_ttl"]
+ip_cache = {}
+ip_cache_lock = Lock()
 
 if max_pings < 1:
     print("max_pings must be at least 1.")
@@ -50,8 +53,6 @@ ip_requests = {}
 ip_requests_lock = Lock()
 log_lock = Lock()
 
-
-
 def send_webhook(webhook_url, message):
     if enable_webhook == False:
         return
@@ -63,10 +64,22 @@ def send_webhook(webhook_url, message):
         print(f"Webhook error: {e}")
 
 def lookup_ip(ip_address=None):
+    now = time.time()
+    with ip_cache_lock:
+        if ip_address in ip_cache:
+            data, timestamp = ip_cache[ip_address]
+            if now - timestamp < CACHE_TTL:
+                return data
+
     url = f"http://ip-api.com/json/{ip_address}" if ip_address else "http://ip-api.com/json/"
+
     try:
         api = requests.get(url, headers={'User-Agent': 'MCHoneypot/1.0'}, timeout=5)
-        return api.json()
+        data = api.json()
+        with ip_cache_lock:
+            ip_cache[ip_address] = (data, now)
+        return data
+
     except Exception as e:
         print(f"IP lookup failed for {ip_address} with error: {e}")
         return {}
@@ -125,6 +138,10 @@ def cleanup_ip_requests():
                       if not any(now - t < time_window for t in times)]
             for ip in expired:
                 del ip_requests[ip]
+        with ip_cache_lock:
+            expired_ips = [ip for ip, (_, ts) in ip_cache.items() if now - ts >= CACHE_TTL]
+            for ip in expired_ips:
+                del ip_cache[ip]
 
 def send_mc_status(client_socket):
     response = copy.deepcopy(config["response"])
