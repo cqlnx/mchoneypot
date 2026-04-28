@@ -37,6 +37,7 @@ The honeypot is fully controlled via a config file:
 {
   "enable_reports": false,
   "abuseip_api_key": "your-abuseip-api-key-here",
+  "abuseip_reason_message": "Minecraft server scanning dectected on port 25565",
   "webhook_url": "your-webhook-here",
   "enable_webhook": false,
   "logs_directory": "logs",
