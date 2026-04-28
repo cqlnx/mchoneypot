@@ -44,7 +44,7 @@ if port < 1 or port > 65535:
     exit(1)
 if enable_webhook and webhook_url in ("your-webhook-here", ""):
     print("Webhook enabled but no URL provided. Disabling webhook.")
-    enable_webhook = False
+    exit(1)
 if cleanup_interval < 1:
     print("cleanup_interval must be at least 1 second.")
     exit(1)
@@ -64,6 +64,7 @@ report_cache = {}
 report_cache_lock = Lock()
 
 def report_ip(ip_address):
+    global enable_reports
     if not enable_reports:
         return
     with report_cache_lock:
@@ -89,6 +90,7 @@ def report_ip(ip_address):
             print(f"[AbuseIPDB] Successfully reported {ip_address}")
         elif response.status_code == 429:
             print(f"[AbuseIPDB] Rate limit hit! (Your API quota is likely exhausted)")
+            enable_reports = False
         else:
             print(f"[AbuseIPDB] Error {response.status_code}: {response.text}")
     except requests.exceptions.RequestException as e:
