@@ -11,6 +11,7 @@ A simple Python honeypot that mimics a Minecraft server to log scans and connect
 - Tracks login attempts (username + IP)  
 - Basic per-IP rate limiting  
 - Optional Discord webhook alerts  
+- Optional Abuseipdb reporting
 - Config-driven setup via `config.json`  
 
 ---
@@ -34,6 +35,8 @@ The honeypot is fully controlled via a config file:
 
 ```json
 {
+  "enable_reports": false,
+  "abuseip_api_key": "your-abuseip-api-key-here",
   "webhook_url": "your-webhook-here",
   "enable_webhook": false,
   "logs_directory": "logs",
@@ -45,6 +48,7 @@ The honeypot is fully controlled via a config file:
   "time_window": 300,
   "cleanup_interval": 3600,
   "cache_ttl": 86400,
+  "report_ttl": 1800,
 
   "response": {
     "version": {

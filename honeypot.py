@@ -13,13 +13,9 @@ from threading import Thread, Lock
 with open("config.json") as f:
     config = json.load(f)
 
-logs = config["logs"]
-logsdir = config["logs_directory"]
-
-if logsdir and not os.path.exists(logsdir):
-    os.makedirs(logsdir)
-    print(f"Created directory: {logsdir}")
-
+enable_reports = config["enable_reports"]
+abuseip_api_key = config["abuseip_api_key"]
+abuseip_reason_message = config["abuseip_reason_message"]
 cleanup_interval = config["cleanup_interval"]
 host = config['bind_host']
 pureiplogs = config["pureiplogs"]
@@ -30,9 +26,13 @@ time_window = config["time_window"]
 kick_message = config["kick_message"]
 port = config["port"]
 CACHE_TTL = config["cache_ttl"]
-ip_cache = {}
-ip_cache_lock = Lock()
+REPORT_TTL = config["report_ttl"]  
+logs = config["logs"]
+logsdir = config["logs_directory"]
 
+if logsdir and not os.path.exists(logsdir):
+    os.makedirs(logsdir)
+    print(f"Created directory: {logsdir}")
 if max_pings < 1:
     print("max_pings must be at least 1.")
     exit(1)
@@ -48,10 +48,51 @@ if enable_webhook and webhook_url in ("your-webhook-here", ""):
 if cleanup_interval < 1:
     print("cleanup_interval must be at least 1 second.")
     exit(1)
+if CACHE_TTL < 1:
+    print("cache_ttl must be at least 1 second.")
+    exit(1)
+if enable_reports and abuseip_api_key in ("your-abuseip-api-key-here", ""):
+    print("Reports enabled but no AbuseIPDB API key provided.")
+    exit(1)
 
 ip_requests = {}
 ip_requests_lock = Lock()
 log_lock = Lock()
+ip_cache = {}
+ip_cache_lock = Lock()
+report_cache = {}
+report_cache_lock = Lock()
+
+def report_ip(ip_address):
+    if not enable_reports:
+        return
+    with report_cache_lock:
+        now = time.time()
+        if ip_address in report_cache:
+            last_reported = report_cache[ip_address]
+            if now - last_reported < REPORT_TTL:
+                return 
+        report_cache[ip_address] = now
+    url = "https://api.abuseipdb.com/api/v2/report"
+    headers = {
+        "Key": abuseip_api_key,
+        "Accept": "application/json"
+    }
+    data = {
+        "ip": ip_address,
+        "categories": "14",
+        "comment": abuseip_reason_message
+    }
+    try:
+        response = requests.post(url, headers=headers, data=data, timeout=10)
+        if response.status_code == 200:
+            print(f"[AbuseIPDB] Successfully reported {ip_address}")
+        elif response.status_code == 429:
+            print(f"[AbuseIPDB] Rate limit hit! (Your API quota is likely exhausted)")
+        else:
+            print(f"[AbuseIPDB] Error {response.status_code}: {response.text}")
+    except requests.exceptions.RequestException as e:
+        print(f"[AbuseIPDB] Connection error for {ip_address}: {e}")
 
 def send_webhook(webhook_url, message):
     if enable_webhook == False:
@@ -70,9 +111,7 @@ def lookup_ip(ip_address=None):
             data, timestamp = ip_cache[ip_address]
             if now - timestamp < CACHE_TTL:
                 return data
-
     url = f"http://ip-api.com/json/{ip_address}" if ip_address else "http://ip-api.com/json/"
-
     try:
         api = requests.get(url, headers={'User-Agent': 'MCHoneypot/1.0'}, timeout=5)
         data = api.json()
@@ -142,6 +181,10 @@ def cleanup_ip_requests():
             expired_ips = [ip for ip, (_, ts) in ip_cache.items() if now - ts >= CACHE_TTL]
             for ip in expired_ips:
                 del ip_cache[ip]
+        with report_cache_lock:
+            expired_reports = [ip for ip, ts in report_cache.items() if now - ts >= REPORT_TTL]
+            for ip in expired_reports:
+                del report_cache[ip]
 
 def send_mc_status(client_socket):
     response = copy.deepcopy(config["response"])
@@ -183,6 +226,7 @@ def log_hit(ip_address, port_num):
         with open(f"{logsdir}/{pureiplogs}", "a") as f:
             f.write(f"{ip_address}\n")
     send_webhook(webhook_url, connection)
+    report_ip(ip_address)
 
 def run_honeypot(host=host, port=port):
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -193,6 +237,21 @@ def run_honeypot(host=host, port=port):
         server_socket.listen(5)
         
         send_webhook(webhook_url, f' **Honeypot started on port {port}**')
+        print(f"""
+        Best Minecraft honeypot started!
+          Reporting:        {"enabled" if enable_reports else "disabled"}
+          Port:             {port}
+          Host:             {host}
+          Max pings:        {max_pings}
+          Time window:      {time_window}s
+          Cleanup interval: {cleanup_interval}s
+          Cache TTL:        {CACHE_TTL}s
+          Report TTL:       {REPORT_TTL}s
+          Webhook:          {"enabled" if enable_webhook else "disabled"}
+          Logs:             {logsdir}/{logs}
+          IP logs:          {logsdir}/{pureiplogs}
+        """)
+
         print("waiting for scanners ;)\n")
 
         while True:
@@ -287,17 +346,5 @@ with log_lock:
     with open(f"{logsdir}/{logs}", "a") as f:
         f.write(f"\n--------------------------------------------------------\n[{timestamp}] Honeypot started on port {port}.\n--------------------------------------------------------\n")
 Thread(target=cleanup_ip_requests, daemon=True).start()
-
-print(f"""
-Best Minecraft honeypot started!
-  Port:             {port}
-  Host:             {host}
-  Max pings:        {max_pings}
-  Time window:      {time_window}s
-  Cleanup interval: {cleanup_interval}s
-  Webhook:          {"enabled" if enable_webhook else "disabled"}
-  Logs:             {logsdir}/{logs}
-  IP logs:          {logsdir}/{pureiplogs}
-""")
 
 run_honeypot()

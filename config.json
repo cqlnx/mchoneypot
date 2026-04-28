@@ -1,4 +1,7 @@
-{
+{ 
+  "enable_reports": false,
+  "abuseip_api_key": "your-abuseip-api-key-here",
+  "abuseip_reason_message": "test report",
   "webhook_url": "your-webhook-here",
   "enable_webhook": false,
   "logs_directory": "logs",
@@ -10,6 +13,7 @@
   "time_window": 300,
   "cleanup_interval": 3600,
   "cache_ttl": 86400,
+  "report_ttl": 1800,
 
   "response": {
     "version": {
