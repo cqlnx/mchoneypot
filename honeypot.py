@@ -9,7 +9,23 @@ import copy
 import random
 from io import BytesIO
 from threading import Thread, Lock
+from colorama import init
 
+
+YELLOW = '\033[1;33m'
+RESET = '\033[0m'
+GREEN = '\033[1;32m'
+RED = '\033[1;31m'
+
+init()
+
+
+get_current_time = lambda : datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+def print_error(text : str):
+
+    print(RED + text + RESET + '\n')
+    
 with open("config.json") as f:
     config = json.load(f)
 
@@ -30,29 +46,44 @@ REPORT_TTL = config["report_ttl"]
 logs = config["logs"]
 logsdir = config["logs_directory"]
 
+log_dir = os.path.join(logsdir,logs) # by using os.path.join, we avoid potential errors in file paths.
+log_ip_dir = os.path.join(logsdir,pureiplogs)
+
+
 if logsdir and not os.path.exists(logsdir):
     os.makedirs(logsdir)
     print(f"Created directory: {logsdir}")
 if max_pings < 1:
-    print("max_pings must be at least 1.")
+
+    print_error("max_pings must be at least 1.")
+
     exit(1)
 if time_window < 1:
-    print("time_window must be at least 1.")
+    print_error("time_window must be at least 1.")
     exit(1)
 if port < 1 or port > 65535:
-    print("Invalid port number. Please use a port between 1 and 65535.")
+
+    print_error("Invalid port number. Please use a port between 1 and 65535.")
+
     exit(1)
 if enable_webhook and webhook_url in ("your-webhook-here", ""):
-    print("Webhook enabled but no URL provided. Disabling webhook.")
+
+    print_error("Webhook enabled but no URL provided. Disabling webhook.")
     exit(1)
 if cleanup_interval < 1:
-    print("cleanup_interval must be at least 1 second.")
+
+    print_error("cleanup_interval must be at least 1 second.")
+
     exit(1)
+
 if CACHE_TTL < 1:
-    print("cache_ttl must be at least 1 second.")
+
+    print_error("cache_ttl must be at least 1 second.")
     exit(1)
+
 if enable_reports and abuseip_api_key in ("your-abuseip-api-key-here", ""):
-    print("Reports enabled but no AbuseIPDB API key provided.")
+
+    print_error("Reports enabled but no AbuseIPDB API key provided.")
     exit(1)
 
 ip_requests = {}
@@ -62,6 +93,29 @@ ip_cache = {}
 ip_cache_lock = Lock()
 report_cache = {}
 report_cache_lock = Lock()
+
+def ips_ignore():
+
+    try:
+        with open('ignore-list.txt','r') as list:
+
+            return [ip.replace('\n','') for ip in list.readlines()]
+
+    except FileNotFoundError:
+
+        return []
+
+ignore_list = ips_ignore()
+
+def save_file(dir : str, content : str):
+
+
+    with log_lock:
+
+        with open(dir, "a") as f:
+        
+            f.write(content)
+
 
 def report_ip(ip_address):
     global enable_reports
@@ -88,13 +142,18 @@ def report_ip(ip_address):
         response = requests.post(url, headers=headers, data=data, timeout=10)
         if response.status_code == 200:
             print(f"[AbuseIPDB] Successfully reported {ip_address}")
+
         elif response.status_code == 429:
-            print(f"[AbuseIPDB] Rate limit hit! (Your API quota is likely exhausted)")
+            print_error(f"[AbuseIPDB] Rate limit hit! (Your API quota is likely exhausted)")
             enable_reports = False
+
         else:
-            print(f"[AbuseIPDB] Error {response.status_code}: {response.text}")
+            print_error(f"[AbuseIPDB] Error {response.status_code}: {response.text}")
+
     except requests.exceptions.RequestException as e:
-        print(f"[AbuseIPDB] Connection error for {ip_address}: {e}")
+
+        print_error(f"[AbuseIPDB] Connection error for {ip_address}: {e}")
+
 
 def send_webhook(webhook_url, message):
     if enable_webhook == False:
@@ -102,17 +161,23 @@ def send_webhook(webhook_url, message):
     data = {"content": message}
     headers = {"Content-Type": "application/json"}
     try:
+
         requests.post(webhook_url, json=data, headers=headers, timeout=5)
     except Exception as e:
-        print(f"Webhook error: {e}")
+
+        print_error(f"Webhook error: {e}")
 
 def lookup_ip(ip_address=None):
     now = time.time()
     with ip_cache_lock:
+
         if ip_address in ip_cache:
+
             data, timestamp = ip_cache[ip_address]
+
             if now - timestamp < CACHE_TTL:
                 return data
+            
     url = f"http://ip-api.com/json/{ip_address}" if ip_address else "http://ip-api.com/json/"
     try:
         api = requests.get(url, headers={'User-Agent': 'MCHoneypot/1.0'}, timeout=5)
@@ -122,7 +187,7 @@ def lookup_ip(ip_address=None):
         return data
 
     except Exception as e:
-        print(f"IP lookup failed for {ip_address} with error: {e}")
+        print_error(f"IP lookup failed for {ip_address} with error: {e}")
         return {}
 
 def read_varint(sock):
@@ -136,6 +201,62 @@ def read_varint(sock):
         if not (byte & 0x80):
             break
     return num
+
+def max_len(list : list[str]):
+
+    if not list:
+
+        return 0
+
+    last = len(list[0])
+
+    for el in list:
+
+        current = len(el)
+
+        if current > last:
+
+            last = current
+
+    return last
+
+def create_table(**kwargs):
+
+    keys = []
+    items = kwargs.items()
+    text = ''
+
+    for key,_ in items:
+
+        keys.append(key)
+
+    max_size = max_len(keys)
+
+
+    for key,value in items:
+
+        text += f'{YELLOW}{key.capitalize().replace('_',' ')}:{RESET}{' ' * (max_size + 1 - len(key))}{value}\n'
+
+    return text
+
+def save_info_players(username : str,ip : str):
+
+    timestamp = get_current_time()
+
+    
+    save_file(log_dir,f"[{timestamp}] Login attempt from: {username} {ip}\n\n")
+
+    save_file(log_ip_dir,f"{ip} (login attempt)\n")
+
+
+def save_info_hits(ip : str, port,country : str,isp : str):
+
+    timestamp = get_current_time()
+
+    save_file(log_dir,f"[{timestamp}] Ping from: `{ip}:{port}`\nCountry: {country}\nISP: {isp}\n\n")
+
+    save_file(log_ip_dir,ip+'\n')
+
 
 def read_varint_from_buffer(buf):
     num = 0
@@ -177,13 +298,18 @@ def cleanup_ip_requests():
         with ip_requests_lock:
             expired = [ip for ip, times in ip_requests.items() 
                       if not any(now - t < time_window for t in times)]
+            
             for ip in expired:
                 del ip_requests[ip]
+
         with ip_cache_lock:
+
             expired_ips = [ip for ip, (_, ts) in ip_cache.items() if now - ts >= CACHE_TTL]
             for ip in expired_ips:
                 del ip_cache[ip]
+
         with report_cache_lock:
+
             expired_reports = [ip for ip, ts in report_cache.items() if now - ts >= REPORT_TTL]
             for ip in expired_reports:
                 del report_cache[ip]
@@ -212,21 +338,30 @@ def send_mc_status(client_socket):
     client_socket.sendall(send_varint(len(packet)) + packet)
 
 def log_hit(ip_address, port_num):
-    timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    timestamp = get_current_time()
+
+    if ip_address in ips_ignore():
+
+        return
+
     location_isp = lookup_ip(ip_address)
     country = location_isp.get("country") or "Unknown"
     isp = location_isp.get("isp") or "Unknown"
     connection = (
-        f'[{timestamp}] Ping from: `{ip_address}:{port_num}`\n'
+        f'{GREEN}- PING:{RESET} from: `{ip_address}:{port_num}` [{timestamp}]\n'
         f'Country: {country}\n'
-        f'ISP: {isp}'
+        f'ISP: {isp}\n'
     )
     print(connection)
-    with log_lock:
-        with open(f"{logsdir}/{logs}", "a") as f:
-            f.write(f"[{timestamp}] Ping from: `{ip_address}:{port_num}`\nCountry: {country}\nISP: {isp}\n")
-        with open(f"{logsdir}/{pureiplogs}", "a") as f:
-            f.write(f"{ip_address}\n")
+
+    save_info_hits(ip=ip_address, 
+              port=port_num,
+              country=country,
+              isp=isp,
+    )
+
+
     send_webhook(webhook_url, connection)
     report_ip(ip_address)
 
@@ -239,20 +374,23 @@ def run_honeypot(host=host, port=port):
         server_socket.listen(5)
         
         send_webhook(webhook_url, f' **Honeypot started on port {port}**')
-        print(f"""
-        Best Minecraft honeypot started!
-          Reporting:        {"enabled" if enable_reports else "disabled"}
-          Port:             {port}
-          Host:             {host}
-          Max pings:        {max_pings}
-          Time window:      {time_window}s
-          Cleanup interval: {cleanup_interval}s
-          Cache TTL:        {CACHE_TTL}s
-          Report TTL:       {REPORT_TTL}s
-          Webhook:          {"enabled" if enable_webhook else "disabled"}
-          Logs:             {logsdir}/{logs}
-          IP logs:          {logsdir}/{pureiplogs}
-        """)
+
+        print('Best Minecraft honeypot started!\n')
+
+        table = create_table(repoting="enabled" if enable_reports else "disabled",
+                     port=port,
+                     host=host,
+                     max_Pings=max_pings,
+                     time_window=f'{time_window}s',
+                     cleanup_interval=f'{cleanup_interval}s',
+                     cache_TTL=f'{CACHE_TTL}s',
+                     report_TTL=f'{REPORT_TTL}',
+                     webhook="enabled" if enable_webhook else "disabled",
+                     logs=log_dir,
+                     IP_logs=log_ip_dir,
+                     ignore_list=ignore_list)
+
+        print(table)
 
         print("waiting for scanners ;)\n")
 
@@ -316,15 +454,17 @@ def run_honeypot(host=host, port=port):
                     read_varint_from_buffer(buffer) 
                     name_len = read_varint_from_buffer(buffer)
                     username = buffer.read(name_len).decode("utf-8")
-                    print(f"Login attempt from: {username} at {ip_address}")
+
+                    print(f"{YELLOW}- LOGIN :{RESET} {username} at {ip_address}\n")
+
                     send_webhook(webhook_url, f"**Login attempt from: `{username}` `{ip_address}`**")
-                    timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    with log_lock:
-                        with open(f"{logsdir}/{logs}", "a") as f:
-                            f.write(f"[{timestamp}] Login attempt from: {username} {ip_address}\n")
-                        with open(f"{logsdir}/{pureiplogs}", "a") as f:
-                            f.write(f"{ip_address} (login attempt)\n")
+                    
+
+                    save_info_players(username=username,
+                                      ip=ip_address)
+
                     reason = json.dumps(kick_message)
+
                     reason_encoded = reason.encode("utf-8")
                     time.sleep(random.randint(1,4))
                     packet = send_varint(0x00) + send_varint(len(reason_encoded)) + reason_encoded
@@ -334,19 +474,25 @@ def run_honeypot(host=host, port=port):
                     client_socket.close()
 
             except Exception as e:
-                print(f"packet error: {e}")
+
+                print_error(f"packet error: {e}")
+
             finally:
                 client_socket.close()
 
     except Exception as e:
-        print(f"server error: {e}")
+
+        print_error(f"server error: {e}")
+
     finally:
+
         server_socket.close()
 
-timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-with log_lock:
-    with open(f"{logsdir}/{logs}", "a") as f:
-        f.write(f"\n--------------------------------------------------------\n[{timestamp}] Honeypot started on port {port}.\n--------------------------------------------------------\n")
+timestamp = get_current_time()
+
+
+save_file(log_dir,f"\n{'-'*50}\n[{timestamp}] Honeypot started on port {port}.\n{'-'*50}\n")
+
 Thread(target=cleanup_ip_requests, daemon=True).start()
 
 run_honeypot()
